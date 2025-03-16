@@ -1,9 +1,9 @@
 package main
 
 type News struct {
-	Category  string `json:"category"`
-	CreatedAt string `json:"created_at"`
-	Data      []Data `json:"data"`
+	Category  string `json:"category" dynamodbav:"category"`     // Partition Key
+	CreatedAt string `json:"created_at" dynamodbav:"created_at"` // Sort Key
+	Data      []Data `json:"data" dynamodbav:"data"`             // News articles
 }
 
 type Data struct {

@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -14,11 +14,8 @@ import (
 )
 
 func main() {
-	// Initialize DynamoDB connection
+	// Initialize AWS DynamoDB client
 	InitDB()
-
-	// Use DBClient from the config
-	fmt.Println("DynamoDB client is ready to use:", DBClient)
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -33,22 +30,24 @@ func main() {
 
 	wg.Wait()
 
-	// Convert to JSON
-	newsJSON, err := json.MarshalIndent(news, "", "  ")
-	if err != nil {
-		fmt.Println("Error marshalling news to JSON:", err)
-		return
-	}
-
-	fmt.Println(string(newsJSON))
-
-	// Insert news into DynamoDB
+	//loop over the news and insert into the database
 	for _, n := range news {
-		err := insertNewsIntoDynamoDB(n)
+		err := InsertNews(n)
 		if err != nil {
-			fmt.Println("Error inserting news into DynamoDB:", err)
+			fmt.Println("Error inserting news into the database:", err)
+			return
 		}
 	}
+
+	// Convert to JSON
+	// newsJSON, err := json.MarshalIndent(news, "", "  ")
+	// if err != nil {
+	// 	fmt.Println("Error marshalling news to JSON:", err)
+	// 	return
+	// }
+
+	// fmt.Println(string(newsJSON))
+
 }
 
 func fetchNews(url string, category string, wg *sync.WaitGroup, mu *sync.Mutex, news *[]News) {
@@ -63,7 +62,7 @@ func fetchNews(url string, category string, wg *sync.WaitGroup, mu *sync.Mutex, 
 	var data []Data
 	for _, item := range feed.Items {
 		newItem := Data{
-			Title:         item.Description,
+			Title:         item.Title,
 			Link:          item.Link,
 			Source:        feed.Title,
 			PublishedData: item.Published,
@@ -98,21 +97,25 @@ func fetchNews(url string, category string, wg *sync.WaitGroup, mu *sync.Mutex, 
 	mu.Unlock()
 }
 
-func insertNewsIntoDynamoDB(news News) error {
+func InsertNews(news News) error {
+	// Marshal the news into JSON
 	item, err := attributevalue.MarshalMap(news)
 	if err != nil {
-		return fmt.Errorf("failed to marshal news: %w", err)
+		log.Printf("Error marshaling news item: %v\n", err)
+		return err
 	}
 
-	input := &dynamodb.PutItemInput{
+	// Insert the news into the database
+	_, err = DBClient.PutItem(context.TODO(), &dynamodb.PutItemInput{
 		TableName: aws.String("Briefly-News"),
 		Item:      item,
-	}
+	})
 
-	_, err = DBClient.PutItem(context.TODO(), input)
 	if err != nil {
-		return fmt.Errorf("failed to put item into DynamoDB: %w", err)
+		log.Printf("Couldn't add news item to Briefly-News table. Error: %v\n", err)
+		return err
 	}
 
+	log.Println("✅ Successfully inserted news item into Briefly-News")
 	return nil
 }
