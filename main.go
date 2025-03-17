@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sync"
-	"time"
 
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go/aws"
@@ -14,43 +15,49 @@ import (
 )
 
 func main() {
+	if os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
+		// Running in AWS Lambda
+		lambda.Start(handler)
+	} else {
+		// Running locally
+		fmt.Println("Running locally...")
+		err := handler(context.TODO())
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+func handler(ctx context.Context) error {
 	// Initialize AWS DynamoDB client
 	InitDB()
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var news []News
+	newsMap := make(map[string]*News)
 
 	for category, urls := range NewsFeeds {
 		for _, url := range urls {
 			wg.Add(1)
-			go fetchNews(url, category, &wg, &mu, &news)
+			go fetchNews(url, category, &wg, &mu, newsMap)
 		}
 	}
 
 	wg.Wait()
 
-	//loop over the news and insert into the database
-	for _, n := range news {
-		err := InsertNews(n)
+	// Loop over the newsMap and insert into the database
+	for _, n := range newsMap {
+		err := InsertNews(*n)
 		if err != nil {
 			fmt.Println("Error inserting news into the database:", err)
-			return
+			return err
 		}
 	}
 
-	// Convert to JSON
-	// newsJSON, err := json.MarshalIndent(news, "", "  ")
-	// if err != nil {
-	// 	fmt.Println("Error marshalling news to JSON:", err)
-	// 	return
-	// }
-
-	// fmt.Println(string(newsJSON))
-
+	return nil
 }
 
-func fetchNews(url string, category string, wg *sync.WaitGroup, mu *sync.Mutex, news *[]News) {
+func fetchNews(url string, category string, wg *sync.WaitGroup, mu *sync.Mutex, newsMap map[string]*News) {
 	defer wg.Done()
 	fp := gofeed.NewParser()
 	feed, err := fp.ParseURL(url)
@@ -89,11 +96,15 @@ func fetchNews(url string, category string, wg *sync.WaitGroup, mu *sync.Mutex, 
 	}
 
 	mu.Lock()
-	*news = append(*news, News{
-		Category:  category,
-		CreatedAt: time.Now().Format(time.RFC3339),
-		Data:      data,
-	})
+	if existingNews, exists := newsMap[category]; exists {
+		existingNews.Data = append(existingNews.Data, data...)
+	} else {
+		newsMap[category] = &News{
+			Category:  category,
+			CreatedAt: "latest",
+			Data:      data,
+		}
+	}
 	mu.Unlock()
 }
 
