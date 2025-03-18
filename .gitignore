@@ -27,3 +27,4 @@ go.work.sum
 
 # Output of the go build command
 bootstrap
+.DS_Store

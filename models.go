@@ -1,15 +1,21 @@
 package main
 
-type News struct {
-	Category  string `json:"category" dynamodbav:"category"`     // Partition Key
-	CreatedAt string `json:"created_at" dynamodbav:"created_at"` // Sort Key
-	Data      []Data `json:"data" dynamodbav:"data"`             // News articles
+// NewsPoint represents a single point in the 10-point news summary
+type NewsPoint struct {
+	Text        string `json:"text" dynamodbav:"text"`
+	Description string `json:"description" dynamodbav:"description"`
+	URL         string `json:"url" dynamodbav:"url"`
+	Source      string `json:"source" dynamodbav:"source"`
+	PublishedAt string `json:"publishedAt" dynamodbav:"publishedAt"`
 }
 
-type Data struct {
-	Title         string `json:"title"`
-	Link          string `json:"link"`
-	Source        string `json:"source"`
-	PublishedData string `json:"published_data"`
-	ImageUrl      string `json:"image_url,omitempty"`
+// NewsItem represents a news item in the database
+type NewsItem struct {
+	Category  string      `json:"category" dynamodbav:"category"`   // Partition Key
+	Timestamp int64       `json:"timestamp" dynamodbav:"timestamp"` // Sort Key
+	NewsID    string      `json:"newsId" dynamodbav:"newsId"`
+	Title     string      `json:"title" dynamodbav:"title"`
+	Points    []NewsPoint `json:"points" dynamodbav:"points"`
+	FetchedAt int64       `json:"fetchedAt" dynamodbav:"fetchedAt"`
+	TTL       int64       `json:"ttl" dynamodbav:"ttl"`
 }
