@@ -18,8 +18,8 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
-// TTL duration in seconds (2 Hours)
-const TTLDuration = 2 * 60 * 60
+// TTL duration in seconds (25 Hours)
+const TTLDuration = 25 * 60 * 60
 
 func main() {
 	if os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
